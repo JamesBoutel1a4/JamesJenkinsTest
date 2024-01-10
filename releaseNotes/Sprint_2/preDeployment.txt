@@ -1,0 +1,26 @@
+-- EXAMPLE --
+
+For DEVCON, SIT, UAT and Production Release:
+
+Salesforce Changes:
+
+1. Add new IP Ranges (JiraId-123)
+    a) Setup > Security > Network Access
+    b) In Trusted IP Ranges, select 'New'
+    c) Start IP: 111.222.3.4 End IP: 111.222.3.5 Description: '2 London Bridge'
+    d) Repeat above, Start IP: 111.333.3.4 End IP: 111.333.3.5 Description: '2 London Bridge'
+2. Do something else (JiraId-555)
+    a) Awesome new feature configuration that can't be deployed
+
+
+
+For UAT and Production Release:
+
+Pardot Changes:
+
+1. Update Account field 'RAG Status' values (JiraId-101)
+    a) Admin > Configure Fields > Account Fields
+    b) Find 'RAG Status' field, under values select 'Edit'
+    c) Enable checkbox next to value: 'Blue'
+2. Do something else (JiraId-212)
+    a) Awesome new feature configuration that can't be deployed

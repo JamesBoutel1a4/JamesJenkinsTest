@@ -1,0 +1,9 @@
+Release 2 Is Live!
+
+Your Salesforce team have been hard at work and have delivered the following changes:
+
+- Awesome feature 1
+- Awesome feature 2
+- You get the point...
+
+Our next release is planned for w/c 01/01, so watch this space! 
