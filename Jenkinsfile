@@ -98,10 +98,10 @@ pipeline {
         stage('Deploy') {
             when {
                 anyOf {
-                    branch "main"
+                    branch "dev"
                     branch "sit"
                     branch "uat"
-                    branch "master";
+                    branch "main";
                 }
             }
             steps {
@@ -117,10 +117,10 @@ pipeline {
         stage('Post Deploy Test Run') {
             when {
                 anyOf {
-                    branch "main"
+                    branch "dev"
                     branch "sit"
                     branch "uat"
-                    branch "master";
+                    branch "main";
                 }
             }
             steps {
@@ -158,7 +158,7 @@ pipeline {
         success {            
             echo "Build success"
             script{
-                if (env.BRANCH_NAME == 'main' ) {
+                if (env.BRANCH_NAME == 'dev' ) {
                     echo "Successfully built on development"
                     emailext( 
                         body: 'Deployment to the ' + "$ENVIRONMENT_NAME" + ' environment has completed successfully.', 
@@ -195,7 +195,7 @@ def getEnvironment() {
     def envToDeploy = [:]
 
     switch( env.BRANCH_NAME ) {
-        case 'main':
+        case 'dev':
             echo "Development branch credentials"
             envToDeploy.username = "$DEVELOPMENT_SF_USERNAME"
             envToDeploy.instanceURL = "$DEVELOPMENT_SF_URL"
@@ -219,7 +219,7 @@ def getEnvironment() {
             envToDeploy.tokenFileName = "UAT"
             envToDeploy.clientIdKey = "$UAT_SECRET_KEY_FOR_CLIENT_ID"
             break
-        case 'master':
+        case 'main':
             echo "Production branch credentials"
             envToDeploy.username = "$PROD_SF_USERNAME"
             envToDeploy.instanceURL = "$PROD_SF_URL"
@@ -249,7 +249,7 @@ def getPREnvironment() {
     envToDeploy.environment = "Pull Request"
 
     switch( env.CHANGE_TARGET ) {
-        case 'main':
+        case 'dev':
             echo "Development branch credentials"
             envToDeploy.username = "$DEVELOPMENT_SF_USERNAME"
             envToDeploy.instanceURL = "$DEVELOPMENT_SF_URL"
@@ -270,7 +270,7 @@ def getPREnvironment() {
             envToDeploy.tokenFileName = "UAT"
             envToDeploy.clientIdKey = "$UAT_SECRET_KEY_FOR_CLIENT_ID"
             break
-        case 'master':
+        case 'main':
             echo "Production branch credentials"
             envToDeploy.username = "$PROD_SF_USERNAME"
             envToDeploy.instanceURL = "$PROD_SF_URL"
