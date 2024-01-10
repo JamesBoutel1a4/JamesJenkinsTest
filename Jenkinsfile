@@ -30,15 +30,32 @@ pipeline {
         SFDX_USE_GENERIC_UNIX_KEYCHAIN = true
         ENVIRONMENT_NAME = "${getEnvironment().environment}"
         TOKENFILENAME = "${getEnvironment().tokenFileName}"
+        GIT_MERGE_DEST = "${getEnvironment().mergeDestination}"
 
     }
 
     stages {
 
         /*
+        Check for Salesforce CLI update
+        */
+        stage('Update CLI') {
+            steps {
+                script { 
+                    try {
+                        sh "$SFDX update"
+                        sh "$SFDX plugins:install @salesforce/sfdx-scanner"
+                        sh "echo y | $SFDX plugins:install sfdx-git-delta"
+                    } catch(Exception e){
+                        echo "Exception occured: " + e.toString()
+                    }
+                }
+            }
+        }
+        
+        /*
         Use the relevant env_tokens .csv for branch, to search project metadata for tokenise keys and replace. 
         */
-        
         stage('Tokenise') {
             steps {
                 script {
@@ -49,9 +66,8 @@ pipeline {
                         sh "ls -l ./scripts/tokenise_metadata.sh"
                         echo "./scripts/tokenise_metadata.sh ./env_tokens/${TOKENFILENAME}.csv"
                         sh "./scripts/tokenise_metadata.sh ./env_tokens/${TOKENFILENAME}.csv"
-                    }
-                    catch(Ex){
-                        echo "$Ex"
+                    } catch(Exception e){
+                        echo "Exception occured: " + e.toString()
                     }
                 }
             }
@@ -65,13 +81,29 @@ pipeline {
             steps {
                 script {
                     try {
-                        sh "sf force:auth:logout -p --targetusername $USERNAME"
-                    }
-                    catch(Ex) {
-                        echo "$Ex"
+                        sh "sfdx force:auth:logout -p --targetusername $USERNAME"
+                    } catch(Exception e){
+                        echo "Exception occured: " + e.toString()
                     }
                 }
-                sh "sf force:auth:jwt:grant --clientid $CLIENT_ID --username $USERNAME --jwtkeyfile $JWT_SECRET_FILE --instanceurl $INSTANCE_URL"
+                sh "sfdx force:auth:jwt:grant --clientid $CLIENT_ID --username $USERNAME --jwtkeyfile $JWT_SECRET_FILE --instanceurl $INSTANCE_URL"
+            }
+        }
+
+        /*
+        If build is triggered by a feature/ branch commit, run a validation to CI sandbox
+        */
+
+        stage('Feature Validation') {
+            when {
+                anyOf {
+                    branch "feature/*";
+                }
+            }
+            steps {
+                echo "Validating commit..."
+                sh "$SFDX force:org:list" // https://github.com/forcedotcom/cli/issues/899
+                sh "$SFDX force:source:deploy --manifest ./manifest/package.xml --loglevel error --targetusername $USERNAME --checkonly --testlevel NoTestRun  --predestructivechanges ./destructiveChanges/destructiveChangesPre.xml --postdestructivechanges ./destructiveChanges/destructiveChangesPost.xml --ignorewarnings"
             }
         }
 
@@ -87,7 +119,7 @@ pipeline {
             }
             steps {
                 echo "Validating..."
-                sh "sf force:source:deploy --manifest force-app/main/default/package.xml --loglevel error --targetusername $USERNAME --checkonly --testlevel RunLocalTests"
+                sh "sfdx force:source:deploy --manifest force-app/main/default/package.xml --loglevel error --targetusername $USERNAME --checkonly --testlevel RunLocalTests --predestructivechanges ./destructiveChanges/destructiveChangesPre.xml --postdestructivechanges ./destructiveChanges/destructiveChangesPost.xml --ignorewarnings"
             }
         }
 
@@ -98,34 +130,15 @@ pipeline {
         stage('Deploy') {
             when {
                 anyOf {
-                    branch "dev"
+                    branch "development"
                     branch "sit"
                     branch "uat"
-                    branch "main";
+                    branch "master";
                 }
             }
             steps {
                 echo "Deploying..."
-                sh "sf force:source:deploy --manifest force-app/main/default/package.xml --loglevel error --targetusername $USERNAME"
-            }
-        }
-
-        /*
-        If build is triggered by a merge, run local tests (after commit has been deployed in stage above)
-        */
-
-        stage('Post Deploy Test Run') {
-            when {
-                anyOf {
-                    branch "dev"
-                    branch "sit"
-                    branch "uat"
-                    branch "main";
-                }
-            }
-            steps {
-                echo "Running local tests"
-                sh "sf force:apex:test:run --loglevel error --resultformat human --testlevel RunLocalTests --targetusername $USERNAME"
+                sh "sfdx force:source:deploy --manifest force-app/main/default/package.xml --loglevel error --targetusername $USERNAME --testlevel RunLocalTests --predestructivechanges ./destructiveChanges/destructiveChangesPre.xml --postdestructivechanges ./destructiveChanges/destructiveChangesPost.xml --ignorewarnings"
             }
         }
 
@@ -137,10 +150,9 @@ pipeline {
             steps {
                 script {
                     try {
-                        sh "sf force:auth:logout -p --targetusername $USERNAME"
-                    }
-                    catch(Ex) {
-                        echo "$Ex"
+                        sh "sfdx force:auth:logout -p --targetusername $USERNAME"
+                    } catch(Exception e){
+                        echo "Exception occured: " + e.toString()
                     }
                 }
             }
@@ -158,7 +170,7 @@ pipeline {
         success {            
             echo "Build success"
             script{
-                if (env.BRANCH_NAME == 'dev' ) {
+                if (env.BRANCH_NAME == 'development' ) {
                     echo "Successfully built on development"
                     emailext( 
                         body: 'Deployment to the ' + "$ENVIRONMENT_NAME" + ' environment has completed successfully.', 
@@ -195,6 +207,19 @@ def getEnvironment() {
     def envToDeploy = [:]
 
     switch( env.BRANCH_NAME ) {
+        case ~/PR.*/:
+            echo "This is a PR"
+            envToDeploy = getPREnvironment()
+            break
+        case ~/feature\/.*/:
+            echo "This is a feature branch, using Development credentials"
+            envToDeploy.username = "$DEVELOPMENT_SF_USERNAME"
+            envToDeploy.instanceURL = "$DEVELOPMENT_SF_URL"
+            envToDeploy.environment = "DEV"
+            envToDeploy.tokenFileName = "DEV"
+            envToDeploy.clientIdKey = "$DEVELOPMENT_SECRET_KEY_FOR_CLIENT_ID"
+            envToDeploy.mergeDestination = "development"
+            break
         case 'dev':
             echo "Development branch credentials"
             envToDeploy.username = "$DEVELOPMENT_SF_USERNAME"
@@ -202,6 +227,7 @@ def getEnvironment() {
             envToDeploy.environment = "DEV"
             envToDeploy.tokenFileName = "DEV"
             envToDeploy.clientIdKey = "$DEVELOPMENT_SECRET_KEY_FOR_CLIENT_ID"
+            envToDeploy.mergeDestination = "dev"
             break
         case 'sit':
             echo "SIT branch credentials"
@@ -210,6 +236,7 @@ def getEnvironment() {
             envToDeploy.environment = "SIT"
             envToDeploy.tokenFileName = "SIT"
             envToDeploy.clientIdKey = "$SIT_SECRET_KEY_FOR_CLIENT_ID"
+            envToDeploy.mergeDestination = "sit"
             break
         case 'uat':
             echo "UAT branch credentials"
@@ -218,6 +245,7 @@ def getEnvironment() {
             envToDeploy.environment = "UAT"
             envToDeploy.tokenFileName = "UAT"
             envToDeploy.clientIdKey = "$UAT_SECRET_KEY_FOR_CLIENT_ID"
+            envToDeploy.mergeDestination = "uat"
             break
         case 'main':
             echo "Production branch credentials"
@@ -226,14 +254,12 @@ def getEnvironment() {
             envToDeploy.environment = "PROD"
             envToDeploy.tokenFileName = "PROD"
             envToDeploy.clientIdKey = "$PROD_SECRET_KEY_FOR_CLIENT_ID"
-            break
-        case ~/PR.*/:
-            echo "This is a PR"
-            envToDeploy = getPREnvironment()
+            envToDeploy.mergeDestination = "main"
             break
         default:
             echo "No setting for this branch - " + env.BRANCH_NAME
-            break
+            currentBuild.result = "ABORTED"
+            throw new Exception("No setting for this branch - " + env.BRANCH_NAME)
     }
 
     return envToDeploy
@@ -246,7 +272,6 @@ def getPREnvironment() {
     def envToDeploy = [:]
 
     echo "Target = " + env.CHANGE_TARGET
-    envToDeploy.environment = "Pull Request"
 
     switch( env.CHANGE_TARGET ) {
         case 'dev':
@@ -255,6 +280,8 @@ def getPREnvironment() {
             envToDeploy.instanceURL = "$DEVELOPMENT_SF_URL"
             envToDeploy.tokenFileName = "DEV"
             envToDeploy.clientIdKey = "$DEVELOPMENT_SECRET_KEY_FOR_CLIENT_ID"
+            envToDeploy.mergeDestination = "dev"
+
             break
         case 'sit':
             echo "SIT branch credentials"
@@ -262,6 +289,7 @@ def getPREnvironment() {
             envToDeploy.instanceURL = "$SIT_SF_URL"
             envToDeploy.tokenFileName = "SIT"
             envToDeploy.clientIdKey = "$SIT_SECRET_KEY_FOR_CLIENT_ID"
+            envToDeploy.mergeDestination = "sit"
             break
         case 'uat':
             echo "UAT branch credentials"
@@ -269,6 +297,7 @@ def getPREnvironment() {
             envToDeploy.instanceURL = "$UAT_SF_URL"
             envToDeploy.tokenFileName = "UAT"
             envToDeploy.clientIdKey = "$UAT_SECRET_KEY_FOR_CLIENT_ID"
+            envToDeploy.mergeDestination = "uat"
             break
         case 'main':
             echo "Production branch credentials"
@@ -276,15 +305,12 @@ def getPREnvironment() {
             envToDeploy.instanceURL = "$PROD_SF_URL"
             envToDeploy.tokenFileName = "PROD"
             envToDeploy.clientIdKey = "$PROD_SECRET_KEY_FOR_CLIENT_ID"
-            break
-        case ~/PR.*/:
-            echo "This is a PR"
-            envToDeploy = getPREnvironment()
+            envToDeploy.mergeDestination = "main"
             break
         default:
             echo "No setting for this branch - " + env.CHANGE_TARGET
-            envToDeploy.tokenFileName = "DEV"
-            break
+            currentBuild.result = "ABORTED"
+            throw new Exception("No setting for this branch - " + env.CHANGE_TARGET)
     }
 
     return envToDeploy
