@@ -12,7 +12,7 @@ pipeline {
 
     agent {
         docker { 
-            image 'appirio/dx'
+            image 'salesforce/cli:nightly-full'
             args '-u 0'
         } 
     }
