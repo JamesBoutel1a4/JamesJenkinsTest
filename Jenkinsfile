@@ -10,12 +10,14 @@ pipeline {
     For more information on dockers in Jenkins: https://jenkins.io/doc/book/pipeline/docker/
     */
 
-    agent {
+    /*agent {
         docker { 
             image 'salesforce/cli:nightly-full'
             args '-u 0'
         } 
-    }
+    }*/
+
+
 
     /*
     Environment variables global to the whole pipeline go here
@@ -39,10 +41,11 @@ pipeline {
         /*
         Check for Salesforce CLI update
         */
-        stage('Update CLI') {
+        stage('Update/install CLI') {
             steps {
                 script { 
                     try {
+                        sh "npm install sfdx-cli@latest-rc"
                         sh "$SFDX update"
                         sh "$SFDX plugins:install @salesforce/sfdx-scanner"
                         sh "echo y | $SFDX plugins:install sfdx-git-delta"
