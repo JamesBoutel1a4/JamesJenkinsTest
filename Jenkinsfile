@@ -122,7 +122,7 @@ pipeline {
             }
             steps {
                 echo "Validating..."
-                sh "sfdx force:source:deploy --manifest force-app/main/default/package.xml --loglevel error --targetusername $USERNAME --checkonly --testlevel RunLocalTests --predestructivechanges ./destructiveChanges/destructiveChangesPre.xml --postdestructivechanges ./destructiveChanges/destructiveChangesPost.xml --ignorewarnings"
+                sh "sfdx force:source:deploy --manifest ./manifest/package.xml --loglevel error --targetusername $USERNAME --checkonly --testlevel RunLocalTests --predestructivechanges ./destructiveChanges/destructiveChangesPre.xml --postdestructivechanges ./destructiveChanges/destructiveChangesPost.xml --ignorewarnings"
             }
         }
 
@@ -133,10 +133,10 @@ pipeline {
         stage('Deploy') {
             when {
                 anyOf {
-                    branch "development"
+                    branch "dev"
                     branch "sit"
                     branch "uat"
-                    branch "master";
+                    branch "main";
                 }
             }
             steps {
@@ -173,7 +173,7 @@ pipeline {
         success {            
             echo "Build success"
             script{
-                if (env.BRANCH_NAME == 'development' ) {
+                if (env.BRANCH_NAME == 'dev' ) {
                     echo "Successfully built on development"
                     emailext( 
                         body: 'Deployment to the ' + "$ENVIRONMENT_NAME" + ' environment has completed successfully.', 
@@ -221,7 +221,7 @@ def getEnvironment() {
             envToDeploy.environment = "DEV"
             envToDeploy.tokenFileName = "DEV"
             envToDeploy.clientIdKey = "$DEVELOPMENT_SECRET_KEY_FOR_CLIENT_ID"
-            envToDeploy.mergeDestination = "development"
+            envToDeploy.mergeDestination = "dev"
             break
         case 'dev':
             echo "Development branch credentials"
