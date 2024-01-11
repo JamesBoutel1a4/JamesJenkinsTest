@@ -10,12 +10,7 @@ pipeline {
     For more information on dockers in Jenkins: https://jenkins.io/doc/book/pipeline/docker/
     */
 
-    agent {
-        /*docker { 
-            image 'salesforce/cli:nightly-full'
-            args '-u 0'
-        } */
-    }
+    agent any
 
 
 
@@ -46,9 +41,9 @@ pipeline {
                 script { 
                     try {
                         sh "npm install sfdx-cli@latest-rc"
-                        sh "$SFDX update"
-                        sh "$SFDX plugins:install @salesforce/sfdx-scanner"
-                        sh "echo y | $SFDX plugins:install sfdx-git-delta"
+                        sh "sf update"
+                        sh "sf plugins:install @salesforce/sfdx-scanner"
+                        sh "echo y | sf plugins:install sfdx-git-delta"
                     } catch(Exception e){
                         echo "Exception occured: " + e.toString()
                     }
@@ -105,8 +100,8 @@ pipeline {
             }
             steps {
                 echo "Validating commit..."
-                sh "$SFDX force:org:list" // https://github.com/forcedotcom/cli/issues/899
-                sh "$SFDX force:source:deploy --manifest ./manifest/package.xml --loglevel error --targetusername $USERNAME --checkonly --testlevel NoTestRun  --predestructivechanges ./destructiveChanges/destructiveChangesPre.xml --postdestructivechanges ./destructiveChanges/destructiveChangesPost.xml --ignorewarnings"
+                sh "sf force:org:list" // https://github.com/forcedotcom/cli/issues/899
+                sh "sf force:source:deploy --manifest ./manifest/package.xml --loglevel error --targetusername $USERNAME --checkonly --testlevel NoTestRun  --predestructivechanges ./destructiveChanges/destructiveChangesPre.xml --postdestructivechanges ./destructiveChanges/destructiveChangesPost.xml --ignorewarnings"
             }
         }
 
@@ -122,7 +117,7 @@ pipeline {
             }
             steps {
                 echo "Validating..."
-                sh "sfdx force:source:deploy --manifest ./manifest/package.xml --loglevel error --targetusername $USERNAME --checkonly --testlevel RunLocalTests --predestructivechanges ./destructiveChanges/destructiveChangesPre.xml --postdestructivechanges ./destructiveChanges/destructiveChangesPost.xml --ignorewarnings"
+                sh "sf force:source:deploy --manifest ./manifest/package.xml --loglevel error --targetusername $USERNAME --checkonly --testlevel RunLocalTests --predestructivechanges ./destructiveChanges/destructiveChangesPre.xml --postdestructivechanges ./destructiveChanges/destructiveChangesPost.xml --ignorewarnings"
             }
         }
 
@@ -141,7 +136,7 @@ pipeline {
             }
             steps {
                 echo "Deploying..."
-                sh "sfdx force:source:deploy --manifest force-app/main/default/package.xml --loglevel error --targetusername $USERNAME --testlevel RunLocalTests --predestructivechanges ./destructiveChanges/destructiveChangesPre.xml --postdestructivechanges ./destructiveChanges/destructiveChangesPost.xml --ignorewarnings"
+                sh "sf force:source:deploy --manifest force-app/main/default/package.xml --loglevel error --targetusername $USERNAME --testlevel RunLocalTests --predestructivechanges ./destructiveChanges/destructiveChangesPre.xml --postdestructivechanges ./destructiveChanges/destructiveChangesPost.xml --ignorewarnings"
             }
         }
 
@@ -153,7 +148,7 @@ pipeline {
             steps {
                 script {
                     try {
-                        sh "sfdx force:auth:logout -p --targetusername $USERNAME"
+                        sh "sf force:auth:logout -p --targetusername $USERNAME"
                     } catch(Exception e){
                         echo "Exception occured: " + e.toString()
                     }
