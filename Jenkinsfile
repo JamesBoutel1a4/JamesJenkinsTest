@@ -84,7 +84,7 @@ pipeline {
                         echo "Exception occured: " + e.toString()
                     }
                 }
-                sh "sfdx force:auth:jwt:grant --clientid $CLIENT_ID --username $USERNAME --jwtkeyfile $JWT_SECRET_FILE --instanceurl $INSTANCE_URL"
+                sh "sf force:auth:jwt:grant --clientid $CLIENT_ID --username $USERNAME --jwtkeyfile $JWT_SECRET_FILE --instanceurl $INSTANCE_URL"
             }
         }
 
