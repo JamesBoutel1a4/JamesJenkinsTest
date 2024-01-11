@@ -10,12 +10,12 @@ pipeline {
     For more information on dockers in Jenkins: https://jenkins.io/doc/book/pipeline/docker/
     */
 
-    /*agent {
-        docker { 
+    agent {
+        /*docker { 
             image 'salesforce/cli:nightly-full'
             args '-u 0'
-        } 
-    }*/
+        } */
+    }
 
 
 
