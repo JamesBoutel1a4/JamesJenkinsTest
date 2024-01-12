@@ -12,7 +12,7 @@ pipeline {
 
     agent any
 
-
+    tools {nodejs "nodejs"}
 
     /*
     Environment variables global to the whole pipeline go here
@@ -40,7 +40,7 @@ pipeline {
             steps {
                 script { 
                     try {
-                        sh "npm install sfdx-cli@latest-rc"
+                        sh "npm install @salesforce/cli --global"
                         sh "sf update"
                         sh "sf plugins:install @salesforce/sfdx-scanner"
                         sh "echo y | sf plugins:install sfdx-git-delta"
