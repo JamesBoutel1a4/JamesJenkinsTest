@@ -12,7 +12,7 @@ pipeline {
 
     agent {
         ecs {
-            inheritFrom 'jenkins-agentnew'
+            inheritFrom 'jenkins-agent-sf'
             environments([[name: 'DIND', value: 'true']])
             }
         }
