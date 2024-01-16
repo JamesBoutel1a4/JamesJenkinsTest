@@ -10,9 +10,13 @@ pipeline {
     For more information on dockers in Jenkins: https://jenkins.io/doc/book/pipeline/docker/
     */
 
-    agent any
+    agent {
+        ecs {
+            inheritFrom 'jenkins-agentnew'
+            environments([[name: 'DIND', value: 'true']])
+            }
+        }
 
-    tools {nodejs "nodejs"}
 
     /*
     Environment variables global to the whole pipeline go here
@@ -36,11 +40,10 @@ pipeline {
         /*
         Check for Salesforce CLI update
         */
-        stage('Update/install CLI') {
+        stage('Update CLI') {
             steps {
                 script { 
                     try {
-                        sh "npm install @salesforce/cli --global"
                         sh "sf update"
                         sh "sf plugins:install @salesforce/sfdx-scanner"
                         sh "echo y | sf plugins:install sfdx-git-delta"
