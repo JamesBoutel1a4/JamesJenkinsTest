@@ -10,9 +10,13 @@ pipeline {
     For more information on dockers in Jenkins: https://jenkins.io/doc/book/pipeline/docker/
     */
 
-    agent any
+    agent {
+        ecs {
+            inheritFrom 'jenkins-agent-sf'
+            environments([[name: 'DIND', value: 'true']])
+            }
+        }
 
-    tools {nodejs "nodejs"}
 
     /*
     Environment variables global to the whole pipeline go here
@@ -24,11 +28,9 @@ pipeline {
         CLIENT_ID = "${getEnvironment().clientIdKey}"
         USERNAME = "${getEnvironment().username}"
         INSTANCE_URL = "${getEnvironment().instanceURL}"
-        SFDX_USE_GENERIC_UNIX_KEYCHAIN = true
         ENVIRONMENT_NAME = "${getEnvironment().environment}"
         TOKENFILENAME = "${getEnvironment().tokenFileName}"
         GIT_MERGE_DEST = "${getEnvironment().mergeDestination}"
-
     }
 
     stages {
@@ -36,13 +38,12 @@ pipeline {
         /*
         Check for Salesforce CLI update
         */
-        stage('Update/install CLI') {
+        stage('Update CLI') {
             steps {
                 script { 
                     try {
-                        sh "npm install @salesforce/cli --global"
-                        sh "sf update"
-                        sh "sf plugins:install @salesforce/sfdx-scanner"
+                        env.GIT_COMMIT_MSG = sh (script: 'git log -1 --pretty=%B ${GIT_COMMIT}', returnStdout: true).trim()
+                        sh "npm update --global @salesforce/cli"
                         sh "echo y | sf plugins:install sfdx-git-delta"
                     } catch(Exception e){
                         echo "Exception occured: " + e.toString()
@@ -79,12 +80,12 @@ pipeline {
             steps {
                 script {
                     try {
-                        sh "sfdx force:auth:logout -p --targetusername $USERNAME"
+                        sh "sfdx org:logout -p --target-org $USERNAME"
                     } catch(Exception e){
                         echo "Exception occured: " + e.toString()
                     }
                 }
-                sh "sf force:auth:jwt:grant --clientid $CLIENT_ID --username $USERNAME --jwtkeyfile $JWT_SECRET_FILE --instanceurl $INSTANCE_URL"
+                sh "sf org:login:jwt --client-id $CLIENT_ID --username $USERNAME --jwt-key-file $JWT_SECRET_FILE --instance-url $INSTANCE_URL"
             }
         }
 
@@ -101,7 +102,7 @@ pipeline {
             steps {
                 echo "Validating commit..."
                 sh "sf force:org:list" // https://github.com/forcedotcom/cli/issues/899
-                sh "sf force:source:deploy --manifest ./manifest/package.xml --loglevel error --targetusername $USERNAME --checkonly --testlevel NoTestRun  --predestructivechanges ./destructiveChanges/destructiveChangesPre.xml --postdestructivechanges ./destructiveChanges/destructiveChangesPost.xml --ignorewarnings"
+                sh "sf project:deploy:start --manifest ./manifest/package.xml --target-org $USERNAME --checkonly --testlevel NoTestRun  --predestructivechanges ./destructiveChanges/destructiveChangesPre.xml --postdestructivechanges ./destructiveChanges/destructiveChangesPost.xml --ignorewarnings"
             }
         }
 
@@ -154,45 +155,6 @@ pipeline {
                     }
                 }
             }
-        }
-    }
-
-    /*
-    Send email to commit author(s) of successful/failed build
-    */
-    
-    post {
-        always {
-            archiveArtifacts(artifacts: '**/*.*')
-        }
-        success {            
-            echo "Build success"
-            script{
-                if (env.BRANCH_NAME == 'dev' ) {
-                    echo "Successfully built on development"
-                    emailext( 
-                        body: 'Deployment to the ' + "$ENVIRONMENT_NAME" + ' environment has completed successfully.', 
-                        recipientProviders: [[$class: 'CulpritsRecipientProvider']],
-                        subject: 'Successful Deployment - $PROJECT_NAME - #$BUILD_NUMBER - Environment: '+ "$ENVIRONMENT_NAME"
-                    )
-                }
-                if (env.BRANCH_NAME.startsWith("PR")) {
-                    echo "Successfully built PR"
-                    emailext( 
-                        body: 'Validation of Pull request to the ' + "$env.BRANCH_NAME" + ' environment was successful.', 
-                        recipientProviders: [[$class: 'CulpritsRecipientProvider']],
-                        subject: 'Successful PR Validation - $PROJECT_NAME - #$BUILD_NUMBER - Environment: '+ "$ENVIRONMENT_NAME"
-                    )
-                }
-            }
-        }
-        failure {
-            echo "Build failed"
-            emailext(
-                body: 'Deployment/validation to the ' + "$ENVIRONMENT_NAME" + ' environment has FAILED. \n\n ${CHANGES} \n\n -------------------------------------------------- \n${BUILD_LOG, maxLines=100, escapeHtml=false}', 
-                recipientProviders: [[$class: 'CulpritsRecipientProvider']],
-                subject: 'Build FAILED: $PROJECT_NAME - #$BUILD_NUMBER - Environment: '+ "$ENVIRONMENT_NAME"
-            )
         }
     }
 }
