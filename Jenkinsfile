@@ -158,45 +158,6 @@ pipeline {
             }
         }
     }
-
-    /*
-    Send email to commit author(s) of successful/failed build
-    */
-    
-    post {
-        always {
-            //archiveArtifacts(artifacts: '**/*.*')
-        }
-        success {            
-            echo "Build success"
-            script{
-                if (env.BRANCH_NAME == 'dev' ) {
-                    echo "Successfully built on development"
-                    emailext( 
-                        body: 'Deployment to the ' + "$ENVIRONMENT_NAME" + ' environment has completed successfully.', 
-                        recipientProviders: [[$class: 'CulpritsRecipientProvider']],
-                        subject: 'Successful Deployment - $PROJECT_NAME - #$BUILD_NUMBER - Environment: '+ "$ENVIRONMENT_NAME"
-                    )
-                }
-                if (env.BRANCH_NAME.startsWith("PR")) {
-                    echo "Successfully built PR"
-                    emailext( 
-                        body: 'Validation of Pull request to the ' + "$env.BRANCH_NAME" + ' environment was successful.', 
-                        recipientProviders: [[$class: 'CulpritsRecipientProvider']],
-                        subject: 'Successful PR Validation - $PROJECT_NAME - #$BUILD_NUMBER - Environment: '+ "$ENVIRONMENT_NAME"
-                    )
-                }
-            }
-        }
-        failure {
-            echo "Build failed"
-            emailext(
-                body: 'Deployment/validation to the ' + "$ENVIRONMENT_NAME" + ' environment has FAILED. \n\n ${CHANGES} \n\n -------------------------------------------------- \n${BUILD_LOG, maxLines=100, escapeHtml=false}', 
-                recipientProviders: [[$class: 'CulpritsRecipientProvider']],
-                subject: 'Build FAILED: $PROJECT_NAME - #$BUILD_NUMBER - Environment: '+ "$ENVIRONMENT_NAME"
-            )
-        }
-    }
 }
 
 /*
