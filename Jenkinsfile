@@ -165,7 +165,7 @@ pipeline {
     
     post {
         always {
-            archiveArtifacts(artifacts: '**/*.*')
+            //archiveArtifacts(artifacts: '**/*.*')
         }
         success {            
             echo "Build success"
