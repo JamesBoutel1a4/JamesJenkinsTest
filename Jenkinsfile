@@ -28,7 +28,7 @@ pipeline {
         CLIENT_ID = "${getEnvironment().clientIdKey}"
         USERNAME = "${getEnvironment().username}"
         INSTANCE_URL = "${getEnvironment().instanceURL}"
-        SFDX_USE_GENERIC_UNIX_KEYCHAIN = true
+        SFDX_USE_GENERIC_UNIX_KEYCHAIN = 'true'
         ENVIRONMENT_NAME = "${getEnvironment().environment}"
         TOKENFILENAME = "${getEnvironment().tokenFileName}"
         GIT_MERGE_DEST = "${getEnvironment().mergeDestination}"
