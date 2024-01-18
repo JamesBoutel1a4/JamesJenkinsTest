@@ -31,6 +31,7 @@ pipeline {
         ENVIRONMENT_NAME = "${getEnvironment().environment}"
         TOKENFILENAME = "${getEnvironment().tokenFileName}"
         GIT_MERGE_DEST = "${getEnvironment().mergeDestination}"
+        GIT_COMMIT_MSG = $(git log --format=%B -n 1 $GIT_COMMIT)
 
     }
 
@@ -43,8 +44,7 @@ pipeline {
             steps {
                 script { 
                     try {
-                        sh "sf update"
-                        sh "sf plugins:install @salesforce/sfdx-scanner"
+                        sh "npm update --global @salesforce/cli"
                         sh "echo y | sf plugins:install sfdx-git-delta"
                     } catch(Exception e){
                         echo "Exception occured: " + e.toString()
