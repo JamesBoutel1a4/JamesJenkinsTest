@@ -80,12 +80,12 @@ pipeline {
             steps {
                 script {
                     try {
-                        sh "sfdx force:auth:logout -p --targetusername $USERNAME"
+                        sh "sfdx org:logout -p --target-org $USERNAME"
                     } catch(Exception e){
                         echo "Exception occured: " + e.toString()
                     }
                 }
-                sh "sf force:auth:jwt:grant --clientid $CLIENT_ID --username $USERNAME --jwtkeyfile $JWT_SECRET_FILE --instanceurl $INSTANCE_URL"
+                sh "sf org:login:jwt --client-id $CLIENT_ID --username $USERNAME --jwt-key-file $JWT_SECRET_FILE --instance-url $INSTANCE_URL"
             }
         }
 
@@ -102,7 +102,7 @@ pipeline {
             steps {
                 echo "Validating commit..."
                 sh "sf force:org:list" // https://github.com/forcedotcom/cli/issues/899
-                sh "sf force:source:deploy --manifest ./manifest/package.xml --loglevel error --targetusername $USERNAME --checkonly --testlevel NoTestRun  --predestructivechanges ./destructiveChanges/destructiveChangesPre.xml --postdestructivechanges ./destructiveChanges/destructiveChangesPost.xml --ignorewarnings"
+                sh "sf project:deploy:start --manifest ./manifest/package.xml --target-org $USERNAME --checkonly --testlevel NoTestRun  --predestructivechanges ./destructiveChanges/destructiveChangesPre.xml --postdestructivechanges ./destructiveChanges/destructiveChangesPost.xml --ignorewarnings"
             }
         }
 
