@@ -31,8 +31,6 @@ pipeline {
         ENVIRONMENT_NAME = "${getEnvironment().environment}"
         TOKENFILENAME = "${getEnvironment().tokenFileName}"
         GIT_MERGE_DEST = "${getEnvironment().mergeDestination}"
-        GIT_COMMIT_MSG = $(git log --format=%B -n 1 $GIT_COMMIT)
-
     }
 
     stages {
@@ -44,6 +42,7 @@ pipeline {
             steps {
                 script { 
                     try {
+                        env.GIT_COMMIT_MSG = sh (script: 'git log -1 --pretty=%B ${GIT_COMMIT}', returnStdout: true).trim()
                         sh "npm update --global @salesforce/cli"
                         sh "echo y | sf plugins:install sfdx-git-delta"
                     } catch(Exception e){
