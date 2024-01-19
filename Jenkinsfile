@@ -43,8 +43,8 @@ pipeline {
                 script { 
                     try {
                         env.GIT_COMMIT_MSG = sh (script: 'git log -1 --pretty=%B ${GIT_COMMIT}', returnStdout: true).trim()
-                        sh "npm update --global @salesforce/cli"
                         sh "echo y | sf plugins:install sfdx-git-delta"
+                        sh "npm update --global @salesforce/cli"
                     } catch(Exception e){
                         echo "Exception occured: " + e.toString()
                     }
