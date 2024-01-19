@@ -101,7 +101,7 @@ pipeline {
                         echo "Creating delta directory..."
                         try{
                             sh "mkdir delta-deployment"
-                            sh "sfdx sgd:source:delta --to origin/$GIT_MERGE_DEST --from origin/${env.GIT_BRANCH} --output 'delta-deployment' --generate-delta"
+                            sh "sfdx sgd:source:delta --to origin/${env.GIT_BRANCH} --from origin/$GIT_MERGE_DEST --output 'delta-deployment' --generate-delta"
                             echo "Delta directory result..."
                             sh "ls -R delta-deployment"
                         } catch(Exception e){
