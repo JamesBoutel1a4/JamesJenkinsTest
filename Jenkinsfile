@@ -110,6 +110,7 @@ pipeline {
                     } 
                 }
             }
+        }
 
         /*  
         If build is triggered by a feature/ branch commit, run a validation to CI sandbox
