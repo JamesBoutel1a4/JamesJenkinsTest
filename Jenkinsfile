@@ -73,9 +73,8 @@ pipeline {
         }
 
         /*
-        SFDX force logout (in case previous build failed before logout), then authorise destination org with JWT 
+        SFDX org logout (in case previous build failed before logout), then authorise destination org with JWT 
         */
-        
         stage('Authorise') {
             steps {
                 script {
@@ -89,10 +88,32 @@ pipeline {
             }
         }
 
-        /*
+        /*  
+        Create a delta directory for delta deployments
+        */
+        stage('Create Delta Dir'){
+            steps {
+                script {
+                    if (env.GIT_COMMIT_MSG.contains("bypass-delta")){
+                        echo "Bypassing creation of delta directory"
+                    } 
+                    else{
+                        echo "Creating delta directory..."
+                        try{
+                            sh "mkdir delta-deployment"
+                            sh "sfdx sgd:source:delta --to origin/$GIT_MERGE_DEST --from origin/${env.GIT_BRANCH} --output "delta-deployment" --generate-delta"
+                            echo "Delta directory result..."
+                            sh "ls -R delta-deployment"
+                        } catch(Exception e){
+                            echo "Exception occured: " + e.toString()
+                        }
+                    } 
+                }
+            }
+
+        /*  
         If build is triggered by a feature/ branch commit, run a validation to CI sandbox
         */
-
         stage('Feature Validation') {
             when {
                 anyOf {
@@ -100,16 +121,22 @@ pipeline {
                 }
             }
             steps {
-                echo "Validating commit..."
-                sh "sf force:org:list" // https://github.com/forcedotcom/cli/issues/899
-                sh "sf project:deploy:start --manifest ./manifest/package.xml --target-org $USERNAME --checkonly --testlevel NoTestRun  --predestructivechanges ./destructiveChanges/destructiveChangesPre.xml --postdestructivechanges ./destructiveChanges/destructiveChangesPost.xml --ignorewarnings"
+                script{
+                    if(env.GIT_COMMIT_MSG.contains("bypass-delta")){
+                        echo "Full Validation..."
+                        sh "sf project:deploy:start --sourcepath force-app/main/default --target-org $USERNAME --checkonly --testlevel RunLocalTests --predestructivechanges ./destructiveChanges/destructiveChangesPre.xml --postdestructivechanges ./destructiveChanges/destructiveChangesPost.xml --ignorewarnings"
+                    }else{
+                        echo "Validating commit..."
+                        sh "sf force:org:list" // https://github.com/forcedotcom/cli/issues/899
+                        sh "sf project:deploy:start --sourcepath delta-deployment --target-org $USERNAME --checkonly --testlevel RunLocalTests --predestructivechanges ./destructiveChanges/destructiveChangesPre.xml --postdestructivechanges ./destructiveChanges/destructiveChangesPost.xml --ignorewarnings"
+                    }
+                }
             }
         }
 
         /*
         If build is triggered by a PR, run a validation to destination branch and run local tests
         */
-        
         stage('Pull Request Validation') {
             when {
                 anyOf {
@@ -117,15 +144,22 @@ pipeline {
                 }
             }
             steps {
-                echo "Validating..."
-                sh "sf force:source:deploy --manifest ./manifest/package.xml --loglevel error --targetusername $USERNAME --checkonly --testlevel RunLocalTests --predestructivechanges ./destructiveChanges/destructiveChangesPre.xml --postdestructivechanges ./destructiveChanges/destructiveChangesPost.xml --ignorewarnings"
+                script{
+                    if(env.GIT_COMMIT_MSG.contains("bypass-delta")){
+                        echo "Full Validation..."
+                        sh "sf project:deploy:start --sourcepath force-app/main/default --target-org $USERNAME --checkonly --testlevel RunLocalTests --predestructivechanges ./destructiveChanges/destructiveChangesPre.xml --postdestructivechanges ./destructiveChanges/destructiveChangesPost.xml --ignorewarnings"
+                    }else{
+                        echo "Validating commit..."
+                        sh "sf force:org:list" // https://github.com/forcedotcom/cli/issues/899
+                        sh "sf project:deploy:start --sourcepath delta-deployment --target-org $USERNAME --checkonly --testlevel RunLocalTests --predestructivechanges ./destructiveChanges/destructiveChangesPre.xml --postdestructivechanges ./destructiveChanges/destructiveChangesPost.xml --ignorewarnings"
+                    }
+                }
             }
         }
 
         /*
         If build is triggered by a merge, deploy to destination branch 
         */
-
         stage('Deploy') {
             when {
                 anyOf {
@@ -136,20 +170,26 @@ pipeline {
                 }
             }
             steps {
-                echo "Deploying..."
-                sh "sf force:source:deploy --manifest force-app/main/default/package.xml --loglevel error --targetusername $USERNAME --testlevel RunLocalTests --predestructivechanges ./destructiveChanges/destructiveChangesPre.xml --postdestructivechanges ./destructiveChanges/destructiveChangesPost.xml --ignorewarnings"
+                script{
+                    if(env.GIT_COMMIT_MSG.contains("bypass-delta")){
+                        echo "Full Deployment..."
+                        sh "sf project:deploy:start --sourcepath force-app/main/default --loglevel error --target-org $USERNAME --testlevel RunLocalTests --predestructivechanges ./destructiveChanges/destructiveChangesPre.xml --postdestructivechanges ./destructiveChanges/destructiveChangesPost.xml --ignorewarnings"
+                    }else{
+                        echo "Delta Deployment..."
+                        sh "sf project:deploy:start --sourcepath delta-deployment --loglevel error --target-org $USERNAME --testlevel RunLocalTests --predestructivechanges ./destructiveChanges/destructiveChangesPre.xml --postdestructivechanges ./destructiveChanges/destructiveChangesPost.xml --ignorewarnings"
+                    }
+                }
             }
         }
 
         /*
         Logout from org
         */
-        
         stage('Logout') {
             steps {
                 script {
                     try {
-                        sh "sf force:auth:logout -p --targetusername $USERNAME"
+                        sh "sf org:logout -p --target-org $USERNAME"
                     } catch(Exception e){
                         echo "Exception occured: " + e.toString()
                     }
