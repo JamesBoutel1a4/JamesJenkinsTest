@@ -24,7 +24,7 @@ pipeline {
     environment {
 
         PATH = "/usr/local/bin:$PATH"
-        JWT_SECRET_FILE = credentials("$SERVER_KEY")
+        JWT_SECRET_FILE = credentials("$SERVER_KEY") //will need to do getEnvironment for each environment 
         CLIENT_ID = "${getEnvironment().clientIdKey}"
         USERNAME = "${getEnvironment().username}"
         INSTANCE_URL = "${getEnvironment().instanceURL}"
@@ -44,7 +44,7 @@ pipeline {
                     try {
                         env.GIT_COMMIT_MSG = sh (script: 'git log -1 --pretty=%B ${GIT_COMMIT}', returnStdout: true).trim()
                         sh "echo y | sf plugins:install sfdx-git-delta"
-                        sh "npm update --global @salesforce/cli"
+                        sh "sudo npm update --global @salesforce/cli"
                     } catch(Exception e){
                         echo "Exception occured: " + e.toString()
                     }
@@ -125,11 +125,11 @@ pipeline {
                 script{
                     if(env.GIT_COMMIT_MSG.contains("bypass-delta")){
                         echo "Full Validation..."
-                        sh "sf force:source:deploy --sourcepath force-app/main/default --target-org $USERNAME --checkonly --testlevel RunLocalTests --predestructivechanges ./destructiveChanges/destructiveChangesPre.xml --postdestructivechanges ./destructiveChanges/destructiveChangesPost.xml --ignorewarnings"
+                        sh "sf force:source:deploy --sourcepath force-app/main/default --target-org $USERNAME --checkonly --testlevel RunLocalTests --ignorewarnings"
                     }else{
                         echo "Validating commit..."
                         sh "sf force:org:list" // https://github.com/forcedotcom/cli/issues/899
-                        sh "sf force:source:deploy --sourcepath delta-deployment --target-org $USERNAME --checkonly --testlevel RunLocalTests --predestructivechanges ./destructiveChanges/destructiveChangesPre.xml --postdestructivechanges ./destructiveChanges/destructiveChangesPost.xml --ignorewarnings"
+                        sh "sf force:source:deploy --sourcepath delta-deployment --target-org $USERNAME --checkonly --testlevel RunLocalTests --ignorewarnings"
                     }
                 }
             }
@@ -148,11 +148,11 @@ pipeline {
                 script{
                     if(env.GIT_COMMIT_MSG.contains("bypass-delta")){
                         echo "Full Validation..."
-                        sh "sf force:source:deploy --sourcepath force-app/main/default --target-org $USERNAME --checkonly --testlevel RunLocalTests --predestructivechanges ./destructiveChanges/destructiveChangesPre.xml --postdestructivechanges ./destructiveChanges/destructiveChangesPost.xml --ignorewarnings"
+                        sh "sf force:source:deploy --sourcepath force-app/main/default --target-org $USERNAME --checkonly --testlevel RunLocalTests --ignorewarnings"
                     }else{
                         echo "Validating commit..."
                         sh "sf force:org:list" // https://github.com/forcedotcom/cli/issues/899
-                        sh "sf force:source:deploy --sourcepath delta-deployment --target-org $USERNAME --checkonly --testlevel RunLocalTests --predestructivechanges ./destructiveChanges/destructiveChangesPre.xml --postdestructivechanges ./destructiveChanges/destructiveChangesPost.xml --ignorewarnings"
+                        sh "sf force:source:deploy --sourcepath delta-deployment --target-org $USERNAME --checkonly --testlevel RunLocalTests --ignorewarnings"
                     }
                 }
             }
@@ -174,10 +174,10 @@ pipeline {
                 script{
                     if(env.GIT_COMMIT_MSG.contains("bypass-delta")){
                         echo "Full Deployment..."
-                        sh "sf force:source:deploy --sourcepath force-app/main/default --loglevel error --target-org $USERNAME --testlevel RunLocalTests --predestructivechanges ./destructiveChanges/destructiveChangesPre.xml --postdestructivechanges ./destructiveChanges/destructiveChangesPost.xml --ignorewarnings"
+                        sh "sf force:source:deploy --sourcepath force-app/main/default --loglevel error --target-org $USERNAME --testlevel RunLocalTests --ignorewarnings"
                     }else{
                         echo "Delta Deployment..."
-                        sh "sf force:source:deploy --sourcepath delta-deployment --loglevel error --target-org $USERNAME --testlevel RunLocalTests --predestructivechanges ./destructiveChanges/destructiveChangesPre.xml --postdestructivechanges ./destructiveChanges/destructiveChangesPost.xml --ignorewarnings"
+                        sh "sf force:source:deploy --sourcepath delta-deployment --loglevel error --target-org $USERNAME --testlevel RunLocalTests --ignorewarnings"
                     }
                 }
             }
