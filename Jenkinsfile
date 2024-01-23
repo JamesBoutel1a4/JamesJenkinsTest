@@ -130,11 +130,11 @@ pipeline {
                 script{
                     if(env.GIT_COMMIT_MSG.contains("bypass-delta")){
                         echo "Full Validation..."
-                        sh "sf force:source:deploy --sourcepath force-app/main/default --target-org $USERNAME --checkonly --testlevel RunLocalTests --ignorewarnings"
+                        sh "sf project:deploy:start --source-dir force-app/main/default --target-org $USERNAME --dry-run --test-level RunLocalTests --ignore-warnings --verbose"
                     }else{
                         echo "Validating commit..."
-                        sh "sf force:org:list" // https://github.com/forcedotcom/cli/issues/899
-                        sh "sf force:source:deploy --sourcepath delta-deployment --target-org $USERNAME --checkonly --testlevel RunLocalTests --ignorewarnings"
+                        sh "sf org:list" // https://github.com/forcedotcom/cli/issues/899
+                        sh "sf project:deploy:start --source-dir delta-deployment --target-org $USERNAME --dry-run --test-level RunLocalTests --ignore-warnings --verbose"
                     }
                 }
             }
@@ -153,11 +153,11 @@ pipeline {
                 script{
                     if(env.GIT_COMMIT_MSG.contains("bypass-delta")){
                         echo "Full Validation..."
-                        sh "sf force:source:deploy --sourcepath force-app/main/default --target-org $USERNAME --checkonly --testlevel RunLocalTests --ignorewarnings"
+                        sh "sf project:deploy:start --source-dir force-app/main/default --target-org $USERNAME --dry-run --test-level RunLocalTests --ignore-warnings --verbose"
                     }else{
                         echo "Validating commit..."
                         sh "sf force:org:list" // https://github.com/forcedotcom/cli/issues/899
-                        sh "sf force:source:deploy --sourcepath delta-deployment --target-org $USERNAME --checkonly --testlevel RunLocalTests --ignorewarnings"
+                        sh "sf project:deploy:start --source-dir delta-deployment --target-org $USERNAME --dry-run --test-level RunLocalTests --ignore-warnings --verbose"
                     }
                 }
             }
@@ -179,10 +179,10 @@ pipeline {
                 script{
                     if(env.GIT_COMMIT_MSG.contains("bypass-delta")){
                         echo "Full Deployment..."
-                        sh "sf force:source:deploy --sourcepath force-app/main/default --loglevel error --target-org $USERNAME --testlevel RunLocalTests --ignorewarnings"
+                        sh "sf project:deploy:start --source-dir force-app/main/default --target-org $USERNAME --test-level RunLocalTests --ignore-warnings --verbose"
                     }else{
                         echo "Delta Deployment..."
-                        sh "sf force:source:deploy --sourcepath delta-deployment --loglevel error --target-org $USERNAME --testlevel RunLocalTests --ignorewarnings"
+                        sh "sf project:deploy:start --source-dir delta-deployment --target-org $USERNAME --test-level RunLocalTests --ignore-warnings --verbose"
                     }
                 }
             }
