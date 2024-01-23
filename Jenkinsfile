@@ -103,8 +103,10 @@ pipeline {
                         echo "Git branch -- ${env.GIT_BRANCH}"
                         try{
                             sh "mkdir delta-deployment"
-                            //sh "sfdx sgd:source:delta --to origin/${env.GIT_BRANCH} --from origin/${GIT_MERGE_DEST} --output 'delta-deployment' --generate-delta"
-                            sh(script: 'sfdx sgd:source:delta --to JamesJenkinsTest/'+${env.GIT_BRANCH}+' --from JamesJenkinsTest/'+${GIT_MERGE_DEST}+' --output "delta-deployment" --generate-delta', returnStdout: true).trim()
+                            sh "git fetch origin ${GIT_MERGE_DEST}:refs/remotes/origin/${GIT_MERGE_DEST}"
+                            sh "git fetch origin ${env.GIT_BRANCH}:refs/remotes/origin/${env.GIT_BRANCH}"
+                            sh "git branch -a"
+                            sh "sfdx sgd:source:delta --to origin/${env.GIT_BRANCH} --from origin/${GIT_MERGE_DEST} --output 'delta-deployment' --generate-delta"
                             echo "Delta directory result..."
                             sh "ls -R delta-deployment"
                         } catch(Exception e){
