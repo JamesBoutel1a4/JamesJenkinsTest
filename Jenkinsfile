@@ -99,10 +99,14 @@ pipeline {
                     } 
                     else{
                         echo "Creating delta directory..."
+                        sh 'printenv'
                         echo "Git merge destination -- ${GIT_MERGE_DEST}"
                         echo "Git branch -- ${env.GIT_BRANCH}"
                         try{
                             sh "mkdir delta-deployment"
+                            if($(GIT_MERGE_DEST == ${env.GIT_BRANCH})){ //merge commit
+                                sh "sfdx sgd:source:delta --to origin/${env.GIT_BRANCH} --from origin/${GIT_MERGE_DEST} --output 'delta-deployment' --generate-delta"
+                            }
                             sh "git fetch origin ${GIT_MERGE_DEST}:refs/remotes/origin/${GIT_MERGE_DEST}"
                             sh "git fetch origin ${env.GIT_BRANCH}:refs/remotes/origin/${env.GIT_BRANCH}"
                             sh "git branch -a"
