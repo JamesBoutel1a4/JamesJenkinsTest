@@ -99,18 +99,23 @@ pipeline {
                     } 
                     else{
                         echo "Creating delta directory..."
-                        sh 'printenv'
                         echo "Git merge destination -- ${GIT_MERGE_DEST}"
                         echo "Git branch -- ${env.GIT_BRANCH}"
                         try{
                             sh "mkdir delta-deployment"
                             if($(GIT_MERGE_DEST == ${env.GIT_BRANCH})){ //merge commit
+                                sh "sfdx sgd:source:delta --to 'HEAD' --from 'HEAD~1' --output 'delta-deployment' --generate-delta"
+                            }else if(env.BRANCH_NAME.contains("PR-")){
+                                sh "git fetch origin ${GIT_MERGE_DEST}:refs/remotes/origin/${GIT_MERGE_DEST}"
+                                sh "git fetch origin ${env.CHANGE_BRANCH}:refs/remotes/origin/${env.CHANGE_BRANCH}"
+                                sh "git branch -a"
+                                sh "sfdx sgd:source:delta --to origin/${env.CHANGE_BRANCH} --from origin/${GIT_MERGE_DEST} --output 'delta-deployment' --generate-delta"
+                            }else{
+                                sh "git fetch origin ${GIT_MERGE_DEST}:refs/remotes/origin/${GIT_MERGE_DEST}"
+                                sh "git fetch origin ${env.GIT_BRANCH}:refs/remotes/origin/${env.GIT_BRANCH}"
+                                sh "git branch -a"
                                 sh "sfdx sgd:source:delta --to origin/${env.GIT_BRANCH} --from origin/${GIT_MERGE_DEST} --output 'delta-deployment' --generate-delta"
                             }
-                            sh "git fetch origin ${GIT_MERGE_DEST}:refs/remotes/origin/${GIT_MERGE_DEST}"
-                            sh "git fetch origin ${env.GIT_BRANCH}:refs/remotes/origin/${env.GIT_BRANCH}"
-                            sh "git branch -a"
-                            sh "sfdx sgd:source:delta --to origin/${env.GIT_BRANCH} --from origin/${GIT_MERGE_DEST} --output 'delta-deployment' --generate-delta"
                             echo "Delta directory result..."
                             sh "ls -R delta-deployment"
                         } catch(Exception e){
