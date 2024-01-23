@@ -30,7 +30,7 @@ pipeline {
         INSTANCE_URL = "${getEnvironment().instanceURL}"
         ENVIRONMENT_NAME = "${getEnvironment().environment}"
         TOKENFILENAME = "${getEnvironment().tokenFileName}"
-        GIT_MERGE_DEST = "${getEnvironment().mergeDestination}"
+        GIT_MERGE_DEST = "${getEnvironment().mergeDestination}".trim()
     }
 
     stages {
