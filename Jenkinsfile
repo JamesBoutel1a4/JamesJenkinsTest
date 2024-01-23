@@ -103,7 +103,7 @@ pipeline {
                         echo "Git branch -- ${env.GIT_BRANCH}"
                         try{
                             sh "mkdir delta-deployment"
-                            if($(GIT_MERGE_DEST == ${env.GIT_BRANCH})){ //merge commit
+                            if(${GIT_MERGE_DEST} == ${env.GIT_BRANCH}){ //merge commit
                                 sh "sfdx sgd:source:delta --to 'HEAD' --from 'HEAD~1' --output 'delta-deployment' --generate-delta"
                             }else if(env.BRANCH_NAME.contains("PR-")){
                                 sh "git fetch origin ${GIT_MERGE_DEST}:refs/remotes/origin/${GIT_MERGE_DEST}"
