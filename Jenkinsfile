@@ -44,7 +44,8 @@ pipeline {
                     try {
                         env.GIT_COMMIT_MSG = sh (script: 'git log -1 --pretty=%B ${GIT_COMMIT}', returnStdout: true).trim()
                         sh "echo y | sf plugins:install sfdx-git-delta"
-                        sh "sudo npm update --global @salesforce/cli"
+                        sh "npm install @salesforce/cli" //potentially cache the npm directory and store it somewhere?
+                        sh "npm update --global @salesforce/cli"
                     } catch(Exception e){
                         echo "Exception occured: " + e.toString()
                     }
@@ -99,9 +100,23 @@ pipeline {
                     } 
                     else{
                         echo "Creating delta directory..."
+                        echo "Git merge destination -- ${GIT_MERGE_DEST}"
+                        echo "Git branch -- ${env.GIT_BRANCH}"
                         try{
                             sh "mkdir delta-deployment"
-                            sh "sfdx sgd:source:delta --to origin/$GIT_MERGE_DEST --from origin/${env.GIT_BRANCH} --output 'delta-deployment' --generate-delta"
+                            if(env.GIT_MERGE_DEST == env.GIT_BRANCH){ //merge commit
+                                sh "sfdx sgd:source:delta --to 'HEAD' --from 'HEAD~1' --output 'delta-deployment' --generate-delta"
+                            }else if(env.BRANCH_NAME.contains("PR-")){
+                                sh "git fetch origin ${GIT_MERGE_DEST}:refs/remotes/origin/${GIT_MERGE_DEST}"
+                                sh "git fetch origin ${env.CHANGE_BRANCH}:refs/remotes/origin/${env.CHANGE_BRANCH}"
+                                sh "git branch -a"
+                                sh "sfdx sgd:source:delta --to origin/${env.CHANGE_BRANCH} --from origin/${GIT_MERGE_DEST} --output 'delta-deployment' --generate-delta"
+                            }else{
+                                sh "git fetch origin ${GIT_MERGE_DEST}:refs/remotes/origin/${GIT_MERGE_DEST}"
+                                sh "git fetch origin ${env.GIT_BRANCH}:refs/remotes/origin/${env.GIT_BRANCH}"
+                                sh "git branch -a"
+                                sh "sfdx sgd:source:delta --to origin/${env.GIT_BRANCH} --from origin/${GIT_MERGE_DEST} --output 'delta-deployment' --generate-delta"
+                            }
                             echo "Delta directory result..."
                             sh "ls -R delta-deployment"
                         } catch(Exception e){
@@ -125,11 +140,11 @@ pipeline {
                 script{
                     if(env.GIT_COMMIT_MSG.contains("bypass-delta")){
                         echo "Full Validation..."
-                        sh "sf force:source:deploy --sourcepath force-app/main/default --target-org $USERNAME --checkonly --testlevel RunLocalTests --ignorewarnings"
+                        sh "sf project:deploy:start --source-dir force-app/main/default --target-org $USERNAME --dry-run --test-level RunLocalTests --ignore-warnings --verbose"
                     }else{
                         echo "Validating commit..."
-                        sh "sf force:org:list" // https://github.com/forcedotcom/cli/issues/899
-                        sh "sf force:source:deploy --sourcepath delta-deployment --target-org $USERNAME --checkonly --testlevel RunLocalTests --ignorewarnings"
+                        sh "sf org:list" // https://github.com/forcedotcom/cli/issues/899
+                        sh "sf project:deploy:start --source-dir delta-deployment --target-org $USERNAME --dry-run --test-level RunLocalTests --ignore-warnings --verbose"
                     }
                 }
             }
@@ -148,11 +163,11 @@ pipeline {
                 script{
                     if(env.GIT_COMMIT_MSG.contains("bypass-delta")){
                         echo "Full Validation..."
-                        sh "sf force:source:deploy --sourcepath force-app/main/default --target-org $USERNAME --checkonly --testlevel RunLocalTests --ignorewarnings"
+                        sh "sf project:deploy:start --source-dir force-app/main/default --target-org $USERNAME --dry-run --test-level RunLocalTests --ignore-warnings --verbose"
                     }else{
                         echo "Validating commit..."
                         sh "sf force:org:list" // https://github.com/forcedotcom/cli/issues/899
-                        sh "sf force:source:deploy --sourcepath delta-deployment --target-org $USERNAME --checkonly --testlevel RunLocalTests --ignorewarnings"
+                        sh "sf project:deploy:start --source-dir delta-deployment --target-org $USERNAME --dry-run --test-level RunLocalTests --ignore-warnings --verbose"
                     }
                 }
             }
@@ -174,10 +189,10 @@ pipeline {
                 script{
                     if(env.GIT_COMMIT_MSG.contains("bypass-delta")){
                         echo "Full Deployment..."
-                        sh "sf force:source:deploy --sourcepath force-app/main/default --loglevel error --target-org $USERNAME --testlevel RunLocalTests --ignorewarnings"
+                        sh "sf project:deploy:start --source-dir force-app/main/default --target-org $USERNAME --test-level RunLocalTests --ignore-warnings --verbose"
                     }else{
                         echo "Delta Deployment..."
-                        sh "sf force:source:deploy --sourcepath delta-deployment --loglevel error --target-org $USERNAME --testlevel RunLocalTests --ignorewarnings"
+                        sh "sf project:deploy:start --source-dir delta-deployment --target-org $USERNAME --test-level RunLocalTests --ignore-warnings --verbose"
                     }
                 }
             }
