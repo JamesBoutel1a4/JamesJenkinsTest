@@ -44,7 +44,8 @@ pipeline {
                     try {
                         env.GIT_COMMIT_MSG = sh (script: 'git log -1 --pretty=%B ${GIT_COMMIT}', returnStdout: true).trim()
                         sh "echo y | sf plugins:install sfdx-git-delta"
-                        sh "sudo npm update --global @salesforce/cli"
+                        sh "npm install @salesforce/cli" //potentially cache the npm directory and store it somewhere?
+                        sh "npm update --global @salesforce/cli"
                     } catch(Exception e){
                         echo "Exception occured: " + e.toString()
                     }
@@ -103,7 +104,7 @@ pipeline {
                         echo "Git branch -- ${env.GIT_BRANCH}"
                         try{
                             sh "mkdir delta-deployment"
-                            if($GIT_MERGE_DEST == env.GIT_BRANCH){ //merge commit
+                            if(env.GIT_MERGE_DEST == env.GIT_BRANCH){ //merge commit
                                 sh "sfdx sgd:source:delta --to 'HEAD' --from 'HEAD~1' --output 'delta-deployment' --generate-delta"
                             }else if(env.BRANCH_NAME.contains("PR-")){
                                 sh "git fetch origin ${GIT_MERGE_DEST}:refs/remotes/origin/${GIT_MERGE_DEST}"
