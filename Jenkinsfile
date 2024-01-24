@@ -166,7 +166,7 @@ pipeline {
                         sh "sf project:deploy:start --source-dir force-app/main/default --target-org $USERNAME --dry-run --test-level RunLocalTests --ignore-warnings --verbose"
                     }else{
                         echo "Validating commit..."
-                        sh "sf force:org:list" // https://github.com/forcedotcom/cli/issues/899
+                        sh "sf org:list" // https://github.com/forcedotcom/cli/issues/899
                         sh "sf project:deploy:start --source-dir delta-deployment --target-org $USERNAME --dry-run --test-level RunLocalTests --ignore-warnings --verbose"
                     }
                 }
