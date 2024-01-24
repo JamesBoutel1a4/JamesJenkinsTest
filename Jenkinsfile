@@ -24,7 +24,7 @@ pipeline {
     environment {
 
         PATH = "/usr/local/bin:$PATH"
-        JWT_SECRET_FILE = credentials("$SERVER_KEY")
+        JWT_SECRET_FILE = credentials("$SERVER_KEY") //will need to do getEnvironment for each environment 
         CLIENT_ID = "${getEnvironment().clientIdKey}"
         USERNAME = "${getEnvironment().username}"
         INSTANCE_URL = "${getEnvironment().instanceURL}"
@@ -43,8 +43,9 @@ pipeline {
                 script { 
                     try {
                         env.GIT_COMMIT_MSG = sh (script: 'git log -1 --pretty=%B ${GIT_COMMIT}', returnStdout: true).trim()
-                        sh "npm update --global @salesforce/cli"
                         sh "echo y | sf plugins:install sfdx-git-delta"
+                        sh "npm install @salesforce/cli" //potentially cache the npm directory and store it somewhere?
+                        sh "npm update --global @salesforce/cli"
                     } catch(Exception e){
                         echo "Exception occured: " + e.toString()
                     }
@@ -73,9 +74,8 @@ pipeline {
         }
 
         /*
-        SFDX force logout (in case previous build failed before logout), then authorise destination org with JWT 
+        SFDX org logout (in case previous build failed before logout), then authorise destination org with JWT 
         */
-        
         stage('Authorise') {
             steps {
                 script {
@@ -89,10 +89,47 @@ pipeline {
             }
         }
 
-        /*
+        /*  
+        Create a delta directory for delta deployments
+        */
+        stage('Create Delta Dir'){
+            steps {
+                script {
+                    if (env.GIT_COMMIT_MSG.contains("bypass-delta")){
+                        echo "Bypassing creation of delta directory"
+                    } 
+                    else{
+                        echo "Creating delta directory..."
+                        echo "Git merge destination -- ${GIT_MERGE_DEST}"
+                        echo "Git branch -- ${env.GIT_BRANCH}"
+                        try{
+                            sh "mkdir delta-deployment"
+                            if(env.GIT_MERGE_DEST == env.GIT_BRANCH){ //merge commit
+                                sh "sfdx sgd:source:delta --to 'HEAD' --from 'HEAD~1' --output 'delta-deployment' --generate-delta"
+                            }else if(env.BRANCH_NAME.contains("PR-")){
+                                sh "git fetch origin ${GIT_MERGE_DEST}:refs/remotes/origin/${GIT_MERGE_DEST}"
+                                sh "git fetch origin ${env.CHANGE_BRANCH}:refs/remotes/origin/${env.CHANGE_BRANCH}"
+                                sh "git branch -a"
+                                sh "sfdx sgd:source:delta --to origin/${env.CHANGE_BRANCH} --from origin/${GIT_MERGE_DEST} --output 'delta-deployment' --generate-delta"
+                            }else{
+                                sh "git fetch origin ${GIT_MERGE_DEST}:refs/remotes/origin/${GIT_MERGE_DEST}"
+                                sh "git fetch origin ${env.GIT_BRANCH}:refs/remotes/origin/${env.GIT_BRANCH}"
+                                sh "git branch -a"
+                                sh "sfdx sgd:source:delta --to origin/${env.GIT_BRANCH} --from origin/${GIT_MERGE_DEST} --output 'delta-deployment' --generate-delta"
+                            }
+                            echo "Delta directory result..."
+                            sh "ls -R delta-deployment"
+                        } catch(Exception e){
+                            echo "Exception occured: " + e.toString()
+                        }
+                    } 
+                }
+            }
+        }
+
+        /*  
         If build is triggered by a feature/ branch commit, run a validation to CI sandbox
         */
-
         stage('Feature Validation') {
             when {
                 anyOf {
@@ -100,16 +137,22 @@ pipeline {
                 }
             }
             steps {
-                echo "Validating commit..."
-                sh "sf force:org:list" // https://github.com/forcedotcom/cli/issues/899
-                sh "sf project:deploy:start --manifest ./manifest/package.xml --target-org $USERNAME --checkonly --testlevel NoTestRun  --predestructivechanges ./destructiveChanges/destructiveChangesPre.xml --postdestructivechanges ./destructiveChanges/destructiveChangesPost.xml --ignorewarnings"
+                script{
+                    if(env.GIT_COMMIT_MSG.contains("bypass-delta")){
+                        echo "Full Validation..."
+                        sh "sf project:deploy:start --source-dir force-app/main/default --target-org $USERNAME --dry-run --test-level RunLocalTests --ignore-warnings --verbose"
+                    }else{
+                        echo "Validating commit..."
+                        sh "sf org:list" // https://github.com/forcedotcom/cli/issues/899
+                        sh "sf project:deploy:start --source-dir delta-deployment --target-org $USERNAME --dry-run --test-level RunLocalTests --ignore-warnings --verbose"
+                    }
+                }
             }
         }
 
         /*
         If build is triggered by a PR, run a validation to destination branch and run local tests
         */
-        
         stage('Pull Request Validation') {
             when {
                 anyOf {
@@ -117,15 +160,22 @@ pipeline {
                 }
             }
             steps {
-                echo "Validating..."
-                sh "sf force:source:deploy --manifest ./manifest/package.xml --loglevel error --targetusername $USERNAME --checkonly --testlevel RunLocalTests --predestructivechanges ./destructiveChanges/destructiveChangesPre.xml --postdestructivechanges ./destructiveChanges/destructiveChangesPost.xml --ignorewarnings"
+                script{
+                    if(env.GIT_COMMIT_MSG.contains("bypass-delta")){
+                        echo "Full Validation..."
+                        sh "sf project:deploy:start --source-dir force-app/main/default --target-org $USERNAME --dry-run --test-level RunLocalTests --ignore-warnings --verbose"
+                    }else{
+                        echo "Validating commit..."
+                        sh "sf force:org:list" // https://github.com/forcedotcom/cli/issues/899
+                        sh "sf project:deploy:start --source-dir delta-deployment --target-org $USERNAME --dry-run --test-level RunLocalTests --ignore-warnings --verbose"
+                    }
+                }
             }
         }
 
         /*
         If build is triggered by a merge, deploy to destination branch 
         */
-
         stage('Deploy') {
             when {
                 anyOf {
@@ -136,20 +186,26 @@ pipeline {
                 }
             }
             steps {
-                echo "Deploying..."
-                sh "sf force:source:deploy --manifest force-app/main/default/package.xml --loglevel error --targetusername $USERNAME --testlevel RunLocalTests --predestructivechanges ./destructiveChanges/destructiveChangesPre.xml --postdestructivechanges ./destructiveChanges/destructiveChangesPost.xml --ignorewarnings"
+                script{
+                    if(env.GIT_COMMIT_MSG.contains("bypass-delta")){
+                        echo "Full Deployment..."
+                        sh "sf project:deploy:start --source-dir force-app/main/default --target-org $USERNAME --test-level RunLocalTests --ignore-warnings --verbose"
+                    }else{
+                        echo "Delta Deployment..."
+                        sh "sf project:deploy:start --source-dir delta-deployment --target-org $USERNAME --test-level RunLocalTests --ignore-warnings --verbose"
+                    }
+                }
             }
         }
 
         /*
         Logout from org
         */
-        
         stage('Logout') {
             steps {
                 script {
                     try {
-                        sh "sf force:auth:logout -p --targetusername $USERNAME"
+                        sh "sf org:logout -p --target-org $USERNAME"
                     } catch(Exception e){
                         echo "Exception occured: " + e.toString()
                     }
