@@ -38,14 +38,13 @@ pipeline {
         /*
         Check for Salesforce CLI update
         */
-        stage('Update CLI') {
+        stage('Setup') {
             steps {
                 script { 
                     try {
                         env.GIT_COMMIT_MSG = sh (script: 'git log -1 --pretty=%B ${GIT_COMMIT}', returnStdout: true).trim()
                         sh "echo y | sf plugins:install sfdx-git-delta"
                         sh "npm install @salesforce/cli" //potentially cache the npm directory and store it somewhere?
-                        sh "npm update --global @salesforce/cli"
                     } catch(Exception e){
                         echo "Exception occured: " + e.toString()
                     }
